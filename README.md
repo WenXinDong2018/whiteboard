@@ -9,6 +9,12 @@ From the repo root directory:
 conda env create -f environment.yml
 ```
 
+Updating environment:
+
+```sh
+conda env update -f environment.yml --prune
+```
+
 https://www.youtube.com/watch?v=pp06oGD4m00
 
 

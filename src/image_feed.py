@@ -1,4 +1,5 @@
 import cv2
+
 import process_frame as pf
 
 video_input = "../videos/terry_tao_low_res.mp4"
@@ -20,9 +21,14 @@ while True:
     # print(frame)
     processed_frame_log = frame_buffer_log.process_frame(frame)
     processed_frame_lin = frame_buffer_lin.process_frame(frame)
+
+    commit_frame_log = frame_buffer_log.commit_frame()
+    commit_frame_lin = frame_buffer_lin.commit_frame()
     # processed_frame = pf.process_frame(frame)
-    cv2.imshow('log frame', processed_frame_log)
-    cv2.imshow('lin frame', processed_frame_lin)
+    cv2.imshow('log frame processed', processed_frame_log)
+    cv2.imshow('lin frame processed', processed_frame_lin)
+    cv2.imshow('log frame committed', commit_frame_log)
+    cv2.imshow('lin frame committed', commit_frame_lin)
 
     # the 'q' button is set as the
     # quitting button you may use any
