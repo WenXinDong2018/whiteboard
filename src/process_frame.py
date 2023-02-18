@@ -59,6 +59,7 @@ frames_average_pooled = []
 
 
 def process_frame(frame):
+    print('Deprecated function. Use FrameBuffer class instead.')
     global frames, frames_average_pooled, frame_counters
 
     frame_t = torch.tensor(frame, dtype=float).permute(2,0,1)
