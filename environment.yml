@@ -8,3 +8,4 @@ dependencies:
   - pip:
     - opencv-python
     - torch
+    - scipy
