@@ -2,7 +2,8 @@ name: whiteboard
 channels:
   - defaults
 dependencies:
-  - python=3.6
+  - python=3.7
   - pip
-  - opencv
   - numpy
+  - pip:
+    - opencv-python
