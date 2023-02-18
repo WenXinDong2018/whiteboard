@@ -54,7 +54,7 @@ class FrameBuffer:
 
         mask = average_delta > 2
 
-        self._update_codebook(mask, current_frame_avg_pooled)
+        # self._update_codebook(mask, current_frame_avg_pooled)
         # self._update_mask(mask, average_pool)
 
         mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
