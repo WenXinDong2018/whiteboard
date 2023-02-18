@@ -1,4 +1,5 @@
 import cv2
+
 import process_frame as pf
 
 video_input = "../videos/terry_tao_low_res.mp4"

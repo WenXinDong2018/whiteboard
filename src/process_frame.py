@@ -21,7 +21,7 @@ class FrameBuffer:
         self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k,self.k))
 
     def process_frame(self, frame):
-        frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1)
+        frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
         self.C, self.H, self.W = frame_tensor.shape
         self.frame_buffer.append(frame_tensor)
         self.frames_average_pooled_buffer.append(
@@ -39,14 +39,14 @@ class FrameBuffer:
         current_frame_avg_pooled = self.frames_average_pooled_buffer[-1]
         if self.is_log_buffer:
             indexes = list(-1 - 2 ** i for i in range(self.num_frames))
-            average_delta = torch.abs(current_frame_avg_pooled - torch.stack(tuple(self.frames_average_pooled_buffer[i] for i in indexes))).sum(axis=1).mean(axis=0)/3
+            average_delta = torch.abs(current_frame_avg_pooled - torch.stack(tuple(self.frames_average_pooled_buffer[i] for i in indexes))).sum(axis=1).mean(axis=0)/3 # type: ignore
         else:
-            average_delta = torch.abs(current_frame_avg_pooled - torch.stack(self.frames_average_pooled_buffer)).sum(axis=1).mean(axis=0)/3 #(N, C, H, W) => (N, H, W) => (H, W)
+            average_delta = torch.abs(current_frame_avg_pooled - torch.stack(self.frames_average_pooled_buffer)).sum(axis=1).mean(axis=0)/3 # type: ignore #(N, C, H, W) => (N, H, W) => (H, W)
 
         mask = average_delta > 2
         mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
 
-        self.frame_buffer[-1][:,mask>0] = 255
+        self.frame_buffer[-1][:,mask>0] = -1
         ret = self.frame_buffer[-1]
         return ret.permute(1,2,0).numpy().astype(np.uint8)
 
@@ -62,7 +62,7 @@ def process_frame(frame):
     print('Deprecated function. Use FrameBuffer class instead.')
     global frames, frames_average_pooled, frame_counters
 
-    frame_t = torch.tensor(frame, dtype=float).permute(2,0,1)
+    frame_t = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
     C, H, W = frame_t.shape
 
     frames.append(frame_t)
@@ -80,7 +80,7 @@ def process_frame(frame):
     curr_t = (num_frames-1)
     curr_average_pooled_frame = frames_average_pooled[curr_t]
 
-    average_delta = torch.abs(curr_average_pooled_frame - torch.stack(frames_average_pooled)).sum(axis=1).mean(axis=0)/3 #(N, C, H, W) => (N, H, W) => (H, W)
+    average_delta = torch.abs(curr_average_pooled_frame - torch.stack(frames_average_pooled)).sum(axis=1).mean(axis=0)/3 # type: ignore #(N, C, H, W) => (N, H, W) => (H, W)
     mask = average_delta > 2
     mask = nn.Upsample((H, W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
 
