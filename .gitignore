@@ -1,2 +1,5 @@
 __pycache__
 
+videos/
+
+src/image_enhancement.py
