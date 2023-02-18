@@ -3,7 +3,7 @@ import process_frame as pf
 
 video_input = "../videos/terry_tao_low_res.mp4"
 
-vid = cv2.VideoCapture(video_input)
+vid = cv2.VideoCapture(0)
 
 while True:
     # Capture the video frame
