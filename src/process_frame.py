@@ -19,8 +19,18 @@ class FrameBuffer:
         self.num_frames = num_frames
         self.is_log_buffer = is_log_buffer
         self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k,self.k))
+        self.committed_frame = None
 
     def process_frame(self, frame):
+        """
+        Adds the frame to buffer and masks frame based on movement from previous frames.
+
+        Args:
+            frame (NDArray): Raw frame from video feed.
+
+        Returns:
+            masked_frame: Frames with movement masked out.
+        """
         frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
         self.C, self.H, self.W = frame_tensor.shape
         self.frame_buffer.append(frame_tensor)
@@ -47,8 +57,24 @@ class FrameBuffer:
         mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
 
         self.frame_buffer[-1][:,mask>0] = -1
-        ret = self.frame_buffer[-1]
-        return ret.permute(1,2,0).numpy().astype(np.uint8)
+        return self.to_cv_frame(self.frame_buffer[-1])
+
+    def to_cv_frame(self, frame):
+        """
+        Converts a tensorflow frame (channel, height, width) to a cv2 frame (height, width, channel)
+        """
+        return frame.permute(1,2,0).numpy().astype(np.uint8)
+
+    def commit_frame(self):
+        """
+        Commits current frame to be used as reference frame for future frames.
+        """
+        if self.committed_frame is None:
+            self.committed_frame = self.frame_buffer[-1]
+            return self.to_cv_frame(self.committed_frame)
+        mask = self.frame_buffer[-1] != -1
+        self.committed_frame[mask] = self.frame_buffer[-1][mask]
+        return self.to_cv_frame(self.committed_frame)
 
 
 # Frames for every 2**i frames
