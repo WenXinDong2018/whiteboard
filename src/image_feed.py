@@ -1,7 +1,9 @@
 import cv2
+import process_frame as pf
 
-vid = cv2.VideoCapture(0)
+video_input = "terry_tao_low_res.mp4"
 
+vid = cv2.VideoCapture(video_input)
 
 while True:
     # Capture the video frame
@@ -9,8 +11,9 @@ while True:
     ret, frame = vid.read()
 
     # Display the resulting frame
-    print(frame)
-    cv2.imshow('frame', frame)
+    # print(frame)
+    processed_frame = pf.process_frame(frame)
+    cv2.imshow('frame', processed_frame)
 
     # the 'q' button is set as the
     # quitting button you may use any
