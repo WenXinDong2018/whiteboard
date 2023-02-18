@@ -1,5 +1,14 @@
 # whiteboard
 
+
+## Environment setup
+
+From the repo root directory:
+
+```sh
+conda env create -f environment.yml
+```
+
 https://www.youtube.com/watch?v=pp06oGD4m00
 
 

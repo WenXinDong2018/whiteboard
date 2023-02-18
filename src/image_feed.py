@@ -1,7 +1,7 @@
 import cv2
 import process_frame as pf
 
-video_input = "terry_tao_low_res.mp4"
+video_input = "../videos/terry_tao_low_res.mp4"
 
 vid = cv2.VideoCapture(video_input)
 
