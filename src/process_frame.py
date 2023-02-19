@@ -148,7 +148,7 @@ class FrameBuffer:
         self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
         not_commited = torch.logical_not(commited)
         show_frame = copy.deepcopy(self.committed_frame)
-        beta = 3
+        beta = 5
         show_frame[:, not_commited] = show_frame[:, not_commited]*(beta-1)/beta + self.frame_buffer[-1][:, not_commited]*1/beta
         mask = not_commited
         return self.to_cv_frame(show_frame)
