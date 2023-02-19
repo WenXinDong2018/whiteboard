@@ -70,10 +70,11 @@ class ImageFeed:
                 if not ret:
                     break
                 for frame_buffer, frame_buffer_name in zip(self.frame_buffers, self.frame_buffer_names):
-                    masked_frame, committed_frame = frame_buffer.process_frame(frame)
-                    # committed_frame = frame_buffer.commit_frame()
+                    masked_frame, committed_frame, final_frame = frame_buffer.process_frame(frame)
                     cv2.imshow(f'{frame_buffer_name} masked', masked_frame)
                     cv2.imshow(f'{frame_buffer_name} committed', committed_frame)
+                    cv2.imshow(f'{frame_buffer_name} final', final_frame)
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         except Exception as e:
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", action="store_true", help="Increase output verbosity")
     parser.add_argument('-n', '--name', type=str, default=None, help='Root name for buffers')
     parser.add_argument('-b', '--lin-buffer', type=int, default=None, help='Linear buffer size')
-    parser.add_argument('-l', '--log-buffer', type=int, default=None, help='Log buffer size')
+    parser.add_argument('-l', '--log-buffer', type=int, default=6, help='Log buffer size')
     parser.add_argument('-k', '--kernel', type=int, default=10, help='Kernel size for average pool convolutions')
 
     args: Args = parser.parse_args() # type: ignore

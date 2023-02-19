@@ -47,7 +47,8 @@ class FrameBuffer:
         if (self.is_log_buffer and len(self.frame_buffer) < 2**self.num_frames) or (
             not self.is_log_buffer and len(self.frame_buffer) < self.num_frames
         ):
-            return frame, frame
+            commited_frame, final_frame = self.commit_frame(None)
+            return frame, commited_frame, final_frame
 
         # Pop oldest frame
         self.frame_buffer.pop(0)
@@ -65,11 +66,11 @@ class FrameBuffer:
         self._fill_mask_gaps(mask)
 
         mask = nn.Upsample((H, W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
-        commited_frame = self.commit_frame(mask>0)
+        final_frame, commited_frame = self.commit_frame(mask>0)
         self.frame_buffer[-1][:,mask>0] = -1
         processed_frame = self.to_cv_frame(self.frame_buffer[-1])
 
-        return processed_frame, commited_frame
+        return processed_frame, commited_frame, final_frame
 
     def _fill_mask_gaps(self, mask):
 
@@ -117,15 +118,14 @@ class FrameBuffer:
         """
         Commits current frame to be used as reference frame for future frames.
         """
-        self.t += 1
-        if self.committed_frame is None:
-            self.committed_frame = self.frame_buffer[-1]
-            return self.to_cv_frame(self.committed_frame)
-        if self.t<self.num_frames:
-            return self.to_cv_frame(self.committed_frame)
+        if self.committed_frame is None: #Commit the very first frame
+            self.committed_frame = copy.deepcopy(self.frame_buffer[-1])
+            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[-1])
+        if mask==None: #Assume the first frame is obstacle-free
+            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[-1])
 
         foreground = self.frame_buffer[-1][:, mask]
-        background = self.frame_buffer[-1][:,torch.logical_not(mask)]
+        background = self.frame_buffer[-1][:, torch.logical_not(mask)]
 
         self.foreground_color = self.moving_average(self.foreground_color, foreground)
         self.background_color = self.moving_average(self.background_color, background)
@@ -135,14 +135,15 @@ class FrameBuffer:
         distance_to_background = torch.abs(self.background_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
         ratio = distance_to_background / distance_to_foreground
 
-        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<30))
+        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<10))
         # commited = torch.logical_not(mask)
         # Commiting the background
         self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
+        # Add semi-transparent obstacles
         not_commited = torch.logical_not(commited)
         show_frame = copy.deepcopy(self.committed_frame)
         beta = 5
         show_frame[:, not_commited] = show_frame[:, not_commited] *(beta-1)/beta + self.frame_buffer[-1][:, not_commited]*1/beta
         mask = not_commited
-        return self.to_cv_frame(show_frame)
+        return self.to_cv_frame(show_frame), self.to_cv_frame(self.committed_frame)
 
