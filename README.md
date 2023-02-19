@@ -1,4 +1,4 @@
-# ClearBoard
+# ClearBoard [DEPRECATED, MOVED TO [ORGANIZATION REPO](https://github.com/clear-board/clear-board)]
 
 A real-time obstruction-removal algorithm for whiteboarding applications.
 
