@@ -1,10 +1,11 @@
 import numpy as np
 import torch.nn as nn
 import torch
-from collections import defaultdict, deque
+import copy
+from collections import defaultdict
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
-import copy
+
 frames = []
 num_frames = 11 * 2 + 1
 k = 50
@@ -29,6 +30,9 @@ class FrameBuffer:
         self.codebook = defaultdict(tuple)  # A list of Code
         self.codebook_distance_eps = 10
         self.similarity_eps = 2
+        self.t = 0
+        self.foreground_color = torch.zeros((3,1))
+        self.background_color = torch.zeros((3,1))
 
     def process_frame(self, frame):
         """
@@ -48,7 +52,7 @@ class FrameBuffer:
         if (self.is_log_buffer and len(self.frame_buffer) < 2**self.num_frames) or (
             not self.is_log_buffer and len(self.frame_buffer) < self.num_frames
         ):
-            return frame
+            return frame, frame
 
         # Pop oldest frame
         self.frame_buffer.pop(0)
@@ -67,9 +71,10 @@ class FrameBuffer:
         self._fill_mask_gaps(mask)
 
         mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
-
+        commited_frame = self.commit_frame(mask>0)
         self.frame_buffer[-1][:,mask>0] = -1
-        return self.to_cv_frame(self.frame_buffer[-1])
+        processed_frame = self.to_cv_frame(self.frame_buffer[-1])
+        return processed_frame, commited_frame
 
     def _fill_mask_gaps(self, mask):
 
@@ -82,7 +87,7 @@ class FrameBuffer:
         for i in range(1, ncomponents):
             component_size = np.sum(labeled == i)
             if component_size < 15:
-                print(f"component with size {component_size} is background")
+                # print(f"component with size {component_size} is background")
                 #component is background
                 mask[labeled==i] = 0
 
@@ -97,7 +102,7 @@ class FrameBuffer:
             component_size = np.sum(labeled == i)
             if component_size < max_component_size:
                 #component is obstacle
-                print(f"component with size {component_size} is obstacle")
+                # print(f"component with size {component_size} is obstacle")
                 mask[labeled==i] = 1
 
 
@@ -107,16 +112,47 @@ class FrameBuffer:
         """
         return frame.permute(1,2,0).numpy().astype(np.uint8)
 
-    def commit_frame(self):
+    def moving_average(self,color, new_colors):
+        if not len(new_colors): return color
+        new_color = torch.mean(new_colors, axis=1).unsqueeze(1) #length 3 vector
+        return (self.t*color + new_color)/(self.t+1)
+
+
+    def commit_frame(self, mask): #mask is 1 for obstacles
         """
         Commits current frame to be used as reference frame for future frames.
         """
+        self.t += 1
         if self.committed_frame is None:
             self.committed_frame = self.frame_buffer[-1]
             return self.to_cv_frame(self.committed_frame)
-        mask = self.frame_buffer[-1] != -1
-        self.committed_frame[mask] = self.frame_buffer[-1][mask]
-        return self.to_cv_frame(self.committed_frame)
+
+        foreground = self.frame_buffer[-1][:, mask]
+        background = self.frame_buffer[-1][:,torch.logical_not(mask)]
+
+        self.foreground_color = self.moving_average(self.foreground_color, foreground)
+        self.background_color = self.moving_average(self.background_color, background)
+
+        # difference = torch.abs(self.committed_frame[mask] - self.frame_buffer[-1][mask]).sum(axis=0)/3
+        # print("self.frame_buffer[-1][mask].reshape(3, -1)",self.frame_buffer[-1][mask].reshape(3, -1).shape)
+        # distance_to_foreground = torch.abs(self.foreground_color - background).sum(axis=0)/3 + 1
+        # distance_to_background = torch.abs(self.background_color - background).sum(axis=0)/3 + 1
+        # print("distance_to_background", distance_to_background)
+        # ratio = distance_to_background / distance_to_foreground <2
+        # print("ratio", ratio)
+        # print("ratio<2/ratio", torch.sum(ratio<2), len(ratio))
+        # print("self.committed_frame[:,mask]", self.committed_frame[:,torch.logical_not(mask).nonzero()[ratio]].shape)
+        # masked = mask[:, torch.logical_not(mask)] #(3, N)
+        # masked[:, ratio] = 1  #(3, N)
+
+        # Commiting the background
+        self.committed_frame[:,torch.logical_not(mask)] = self.frame_buffer[-1][:,torch.logical_not(mask)]
+
+        # Uncommiting the background
+        show_frame = copy.deepcopy(self.committed_frame)
+        show_frame[:, mask] = (show_frame[:, mask] + self.frame_buffer[-1][:, mask])/2
+
+        return self.to_cv_frame(show_frame)
 
     def _update_codebook(self, mask, average_pooled):
         # Randomly select indices of average_pooled to speed up
@@ -158,8 +194,7 @@ class FrameBuffer:
         min_dist = float("inf")
         closest_code = None
         target = (int(x[0]), int(x[1]), int(x[2]))
-        # print("target", target)
-        # print()
+
         for r in range(
             max(0, target[0] - self.codebook_distance_eps),
             min(255, target[0] + self.codebook_distance_eps),
@@ -183,14 +218,7 @@ class FrameBuffer:
         if create and add_code:
             self.codebook[target] = Code(x, 0, 0, len(self.codebook))
             closest_code = self.codebook[target]
-            print("adding code", len(self.codebook))
         return closest_code
-
-    # def update_code(code, match_idx):
-    #     match = obstacle_codebook_freq[match_idx]
-    #     freq = obstacle_codebook_freq[match_idx]
-    #     obstacle_codebook_freq[match_idx] = (freq*match + code)/ (freq+1)
-    #     obstacle_codebook_freq[match_idx]+=1
 
     def _update_mask(self, mask, average_pooled):
         C, H, W = average_pooled.shape
