@@ -133,25 +133,24 @@ class FrameBuffer:
         self.foreground_color = self.moving_average(self.foreground_color, foreground)
         self.background_color = self.moving_average(self.background_color, background)
 
-        # difference = torch.abs(self.committed_frame[mask] - self.frame_buffer[-1][mask]).sum(axis=0)/3
+        difference = torch.abs(self.committed_frame - self.frame_buffer[-1]).sum(axis=0)/3
         # print("self.frame_buffer[-1][mask].reshape(3, -1)",self.frame_buffer[-1][mask].reshape(3, -1).shape)
-        # distance_to_foreground = torch.abs(self.foreground_color - background).sum(axis=0)/3 + 1
-        # distance_to_background = torch.abs(self.background_color - background).sum(axis=0)/3 + 1
-        # print("distance_to_background", distance_to_background)
-        # ratio = distance_to_background / distance_to_foreground <2
-        # print("ratio", ratio)
+        # print("self.frame_buffer[-1]", self.frame_buffer[-1].shape)
+        distance_to_foreground = torch.abs(self.foreground_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
+        distance_to_background = torch.abs(self.background_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
+        # print("distance_to_background", distance_to_background.shape)
+        ratio = distance_to_background / distance_to_foreground
+        # print("ratio", ratio.shape)
         # print("ratio<2/ratio", torch.sum(ratio<2), len(ratio))
         # print("self.committed_frame[:,mask]", self.committed_frame[:,torch.logical_not(mask).nonzero()[ratio]].shape)
-        # masked = mask[:, torch.logical_not(mask)] #(3, N)
-        # masked[:, ratio] = 1  #(3, N)
-
+        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<0.7, difference<5))
         # Commiting the background
-        self.committed_frame[:,torch.logical_not(mask)] = self.frame_buffer[-1][:,torch.logical_not(mask)]
-
-        # Uncommiting the background
+        self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
+        not_commited = torch.logical_not(commited)
         show_frame = copy.deepcopy(self.committed_frame)
-        show_frame[:, mask] = (show_frame[:, mask] + self.frame_buffer[-1][:, mask])/2
-
+        beta = 3
+        show_frame[:, not_commited] = show_frame[:, not_commited]*(beta-1)/beta + self.frame_buffer[-1][:, not_commited]*1/beta
+        mask = not_commited
         return self.to_cv_frame(show_frame)
 
     def _update_codebook(self, mask, average_pooled):
