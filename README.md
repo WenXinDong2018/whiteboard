@@ -6,6 +6,10 @@ Contributors: [WenXin Dong](https://github.com/WenXinDong2018), [Daniel Huang](h
 
 ---
 
+![image](images/image.jpg)
+
+
+
 ## Table of Contents
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
