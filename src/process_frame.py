@@ -14,11 +14,12 @@ class Code:
     idx: int
 
 class FrameBuffer:
-    def __init__(self, num_frames: int, kernel_size: int, is_log_buffer=False) -> None:
+    def __init__(self, num_frames: int, kernel_size: int, is_log_buffer=False, num_future_frames: int = 0) -> None:
         self.frame_buffer = []
         self.frames_average_pooled_buffer = []
         self.k = kernel_size
         self.num_frames = num_frames
+        self.cur_frame = num_frames - num_future_frames - 1
         self.is_log_buffer = is_log_buffer
         self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//2,self.k//2))
         self.committed_frame = None
@@ -54,7 +55,7 @@ class FrameBuffer:
         self.frame_buffer.pop(0)
         self.frames_average_pooled_buffer.pop(0)
 
-        current_frame_avg_pooled = self.frames_average_pooled_buffer[-1]
+        current_frame_avg_pooled = self.frames_average_pooled_buffer[self.cur_frame]
         if self.is_log_buffer:
             indexes = list(-1 - 2 ** i for i in range(self.num_frames))
             average_delta = torch.abs(current_frame_avg_pooled - torch.stack(tuple(self.frames_average_pooled_buffer[i] for i in indexes))).sum(axis=1).mean(axis=0)/3 # type: ignore
@@ -67,8 +68,9 @@ class FrameBuffer:
 
         mask = nn.Upsample((H, W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
         final_frame, commited_frame = self.commit_frame(mask>0)
-        self.frame_buffer[-1][:,mask>0] = -1
-        processed_frame = self.to_cv_frame(self.frame_buffer[-1])
+
+        self.frame_buffer[self.cur_frame][:,mask>0] = -1
+        processed_frame = self.to_cv_frame(self.frame_buffer[self.cur_frame])
 
         return processed_frame, commited_frame, final_frame
 
@@ -118,32 +120,35 @@ class FrameBuffer:
         """
         Commits current frame to be used as reference frame for future frames.
         """
-        if self.committed_frame is None: #Commit the very first frame
-            self.committed_frame = copy.deepcopy(self.frame_buffer[-1])
-            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[-1])
-        if mask==None: #Assume the first frame is obstacle-free
-            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[-1])
 
-        foreground = self.frame_buffer[-1][:, mask]
-        background = self.frame_buffer[-1][:, torch.logical_not(mask)]
+        if self.committed_frame is None: #Commit the very first frame
+            self.committed_frame = copy.deepcopy(self.frame_buffer[0])
+            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[0])
+        if mask==None: #Assume the first frame is obstacle-free
+            return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[0])
+
+        self.cur_frame = self.num_frames//2
+
+        foreground = self.frame_buffer[self.cur_frame][:, mask]
+        background = self.frame_buffer[self.cur_frame][:, torch.logical_not(mask)]
 
         self.foreground_color = self.moving_average(self.foreground_color, foreground)
         self.background_color = self.moving_average(self.background_color, background)
 
-        difference = torch.abs(self.committed_frame - self.frame_buffer[-1]).sum(axis=0)/3
-        distance_to_foreground = torch.abs(self.foreground_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
-        distance_to_background = torch.abs(self.background_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
+        difference = torch.abs(self.committed_frame - self.frame_buffer[self.cur_frame]).sum(axis=0)/3
+        distance_to_foreground = torch.abs(self.foreground_color.unsqueeze(-1) - self.frame_buffer[self.cur_frame]).sum(axis=0)/3 + 1
+        distance_to_background = torch.abs(self.background_color.unsqueeze(-1) - self.frame_buffer[self.cur_frame]).sum(axis=0)/3 + 1
         ratio = distance_to_background / distance_to_foreground
 
         commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<10))
         # commited = torch.logical_not(mask)
         # Commiting the background
-        self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
+        self.committed_frame[:,commited] = self.frame_buffer[self.cur_frame][:,commited]
         # Add semi-transparent obstacles
         not_commited = torch.logical_not(commited)
         show_frame = copy.deepcopy(self.committed_frame)
         beta = 5
-        show_frame[:, not_commited] = show_frame[:, not_commited] *(beta-1)/beta + self.frame_buffer[-1][:, not_commited]*1/beta
+        show_frame[:, not_commited] = show_frame[:, not_commited] *(beta-1)/beta + self.frame_buffer[self.cur_frame][:, not_commited]*1/beta
         mask = not_commited
         return self.to_cv_frame(show_frame), self.to_cv_frame(self.committed_frame)
 

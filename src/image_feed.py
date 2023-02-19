@@ -105,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--name', type=str, default=None, help='Root name for buffers')
     parser.add_argument('-b', '--lin-buffer', type=int, default=None, help='Linear buffer size')
     parser.add_argument('-l', '--log-buffer', type=int, default=6, help='Log buffer size')
+    parser.add_argument('--future-buffer', type=int, default=3, help='Buffer size reserved for future frames')
     parser.add_argument('-k', '--kernel', type=int, default=10, help='Kernel size for average pool convolutions')
 
     args: Args = parser.parse_args() # type: ignore
@@ -122,9 +123,9 @@ if __name__ == '__main__':
     ## Frame buffers
     frame_buffers = []
     if args.lin_buffer is not None:
-        frame_buffers.append(pf.FrameBuffer(args.lin_buffer, args.kernel, is_log_buffer=False))
+        frame_buffers.append(pf.FrameBuffer(args.lin_buffer, args.kernel, is_log_buffer=False, num_future_frames=args.future_buffer))
     if args.log_buffer is not None:
-        frame_buffers.append(pf.FrameBuffer(args.log_buffer, args.kernel, is_log_buffer=True))
+        frame_buffers.append(pf.FrameBuffer(args.log_buffer, args.kernel, is_log_buffer=True , num_future_frames=args.future_buffer))
 
     # Frame buffer names
     frame_buffer_names = None
