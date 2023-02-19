@@ -21,7 +21,7 @@ class FrameBuffer:
         self.is_log_buffer = is_log_buffer
         self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//2,self.k//2))
         self.committed_frame = None
-        self.codebook = defaultdict(tuple)  # A list of Code
+        self.codebook: dict[tuple, Code] = {}  # A list of Code
         self.codebook_distance_eps = 10
         self.similarity_eps = 2
 
@@ -71,7 +71,7 @@ class FrameBuffer:
         structure = np.ones((3, 3), dtype=np.int)
 
         # Get rid of blinking noises
-        labeled, ncomponents = label(mask, structure)
+        labeled, ncomponents = label(mask, structure) # type: ignore
         labeled = np.array(labeled)
 
         for i in range(1, ncomponents):
@@ -82,19 +82,18 @@ class FrameBuffer:
                 mask[labeled==i] = 0
 
         # Fill obstacles
-        labeled, ncomponents = label(torch.logical_not(mask), structure)
+        labeled, ncomponents = label(torch.logical_not(mask), structure) # type: ignore
         max_component_size = 0
+        max_component_idx = 0
         for i in range(1, ncomponents):
             component_size = np.sum(labeled == i)
-            max_component_size = max(max_component_size, component_size)
-
-        for i in range(1,ncomponents):
-            component_size = np.sum(labeled == i)
-            if component_size < max_component_size:
-                #component is obstacle
-                # print(f"component with size {component_size} is obstacle")
-                mask[labeled==i] = 1
-
+            if component_size > max_component_size:
+                max_component_idx = i
+                max_component_size = component_size
+        for i in range(1, ncomponents):
+            if i == max_component_idx:
+                continue
+            mask[labeled==i] = 1
 
     def to_cv_frame(self, frame):
         """
@@ -122,6 +121,9 @@ class FrameBuffer:
             for j in range(0,W,20):
                 code = average_pooled[:, i, j]
                 match = self._find_closest_code(code, create=True)
+                if match is None:
+                    print('match is none for code ', code)
+                    continue
                 if mask[i][j] > 0:
                     match.obstacle_freq += 1
                 else:
