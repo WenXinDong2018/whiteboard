@@ -107,7 +107,4 @@ if __name__ == '__main__':
         True
     )
 
-# After the loop release the cap object
-vid.release()
-# Destroy all the windows
-cv2.destroyAllWindows()
+    image_feed.run_capture_loop()

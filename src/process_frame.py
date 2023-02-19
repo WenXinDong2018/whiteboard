@@ -28,8 +28,10 @@ class FrameBuffer:
     def process_frame(self, frame):
         """
         Adds the frame to buffer and masks frame based on movement from previous frames.
+
         Args:
             frame (NDArray): Raw frame from video feed.
+
         Returns:
             masked_frame: Frames with movement masked out.
         """

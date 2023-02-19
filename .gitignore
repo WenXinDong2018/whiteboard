@@ -1,9 +1,2 @@
 __pycache__
-<<<<<<< HEAD
-
-videos/
-
-src/image_enhancement.py
-=======
 videos/*
->>>>>>> main
