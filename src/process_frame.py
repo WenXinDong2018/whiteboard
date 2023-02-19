@@ -4,6 +4,15 @@ import torch
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
 
+# Some constants
+
+AVG_DELTA_THRESHOLD = 1
+COMMIT_DELTA_THRESHOLD = 700
+
+STRIDE_OVERLAP = 4
+
+DISCOUNT_FACTOR = 1
+
 @dataclass
 class Code:
     code: torch.Tensor
@@ -18,7 +27,7 @@ class FrameBuffer:
         self.k = kernel_size
         self.num_frames = num_frames
         self.is_log_buffer = is_log_buffer
-        self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//2,self.k//2))
+        self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//STRIDE_OVERLAP,self.k//STRIDE_OVERLAP))
         self.committed_frame = None
         self.codebook: dict[tuple, Code] = {}  # A list of Code
         self.codebook_distance_eps = 10
@@ -55,7 +64,7 @@ class FrameBuffer:
         else:
             average_delta = torch.abs(current_frame_avg_pooled - torch.stack(self.frames_average_pooled_buffer)).sum(axis=1).mean(axis=0)/3 # type: ignore #(N, C, H, W) => (N, H, W) => (H, W)
 
-        mask = average_delta > 1
+        mask = average_delta > AVG_DELTA_THRESHOLD
 
         # self._update_codebook(mask, current_frame_avg_pooled)
         self._fill_mask_gaps(mask)
@@ -111,7 +120,7 @@ class FrameBuffer:
         proposed_commit = self.committed_frame.clone()
         proposed_commit[mask] = self.frame_buffer[-1][mask]
         delta = torch.abs(proposed_commit - self.committed_frame).sum(axis=0) # type: ignore
-        delta_mask = delta > 800      # All the pixels that changed too much, take the old commit
+        delta_mask = delta > COMMIT_DELTA_THRESHOLD      # All the pixels that changed too much, take the old commit
         proposed_commit[:, delta_mask] = self.committed_frame[:, delta_mask]
         self.committed_frame = proposed_commit
         return self.to_cv_frame(self.committed_frame)

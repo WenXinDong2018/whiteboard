@@ -90,8 +90,8 @@ class ImageFeed:
 if __name__ == '__main__':
     video_input = "../videos/terry_tao_low_res.mp4"
 
-    lin_frame_buffer = pf.FrameBuffer(50, 10, is_log_buffer=False)
-    log_frame_buffer = pf.FrameBuffer(6, 10, is_log_buffer=True)
+    lin_frame_buffer = pf.FrameBuffer(40, 10, is_log_buffer=False)
+    log_frame_buffer = pf.FrameBuffer(5, 10, is_log_buffer=True)
 
     # image_feed = ImageFeed(
     #     0,                                      # Webcam feed
@@ -101,10 +101,9 @@ if __name__ == '__main__':
     # )
 
     image_feed = ImageFeed(
-        0,                                      # Webcam feed
+        video_input,                                      # Webcam feed
         log_frame_buffer,                       # Frame buffer
-        'log',                                  # Frame buffer name
-        True
+        verbose = True
     )
 
     image_feed.run_capture_loop()
