@@ -35,6 +35,7 @@ class ImageFeed:
         if isinstance(video_input, int) and video_input != 0:
             print('Invalid input for webcam feed. Defaulting to webcam feed.')
             video_input = 0
+        self.video_input = video_input
         self.windows: list[str] = []
         self.frame_buffers = frame_buffers
         if frame_buffer_names is None:
@@ -45,10 +46,10 @@ class ImageFeed:
         self.verbose = verbose
 
     def _start_feed(self):
-        self.vid = cv2.VideoCapture(input)
+        self.vid_capture = cv2.VideoCapture(self.video_input)
 
     def _stop_feed(self):
-        self.vid.release()
+        self.vid_capture.release()
         for win in self.windows:
             cv2.destroyWindow(win)
 
@@ -64,7 +65,7 @@ class ImageFeed:
                 if i % avg_scope == 0 and self.verbose:
                     print(f'Frames {i-avg_scope}-{i} average time spent: {(time.time() - start_time) / avg_scope}s per frame')
                     start_time = time.time()
-                ret, frame = self.vid.read()
+                ret, frame = self.vid_capture.read()
                 if not ret:
                     break
                 for frame_buffer, frame_buffer_name in zip(self.frame_buffers, self.frame_buffer_names):
@@ -74,7 +75,8 @@ class ImageFeed:
                     cv2.imshow(f'{frame_buffer_name} committed', committed_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-        except:
+        except Exception as e:
+            print(e)
             print('Error in capture loop.')
         self._stop_feed()
 
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     # )
 
     image_feed = ImageFeed(
-        0,                                      # Webcam feed
+        video_input,                                      # Webcam feed
         log_frame_buffer,                       # Frame buffer
         'log',                                  # Frame buffer name
         True

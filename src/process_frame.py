@@ -1,14 +1,9 @@
 import numpy as np
 import torch.nn as nn
 import torch
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
-import copy
-frames = []
-num_frames = 11 * 2 + 1
-k = 50
-frames_average_pooled = []
 
 @dataclass
 class Code:
@@ -41,7 +36,7 @@ class FrameBuffer:
             masked_frame: Frames with movement masked out.
         """
         frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
-        self.C, self.H, self.W = frame_tensor.shape
+        C, H, W = frame_tensor.shape
         self.frame_buffer.append(frame_tensor)
         self.frames_average_pooled_buffer.append(self.avg_pool2d(frame_tensor))
 
@@ -82,7 +77,7 @@ class FrameBuffer:
         for i in range(1, ncomponents):
             component_size = np.sum(labeled == i)
             if component_size < 15:
-                print(f"component with size {component_size} is background")
+                # print(f"component with size {component_size} is background")
                 #component is background
                 mask[labeled==i] = 0
 
@@ -97,7 +92,7 @@ class FrameBuffer:
             component_size = np.sum(labeled == i)
             if component_size < max_component_size:
                 #component is obstacle
-                print(f"component with size {component_size} is obstacle")
+                # print(f"component with size {component_size} is obstacle")
                 mask[labeled==i] = 1
 
 
