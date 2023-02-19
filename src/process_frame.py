@@ -1,14 +1,9 @@
 import numpy as np
 import torch.nn as nn
 import torch
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
-import copy
-frames = []
-num_frames = 11 * 2 + 1
-k = 50
-frames_average_pooled = []
 
 @dataclass
 class Code:
@@ -41,7 +36,7 @@ class FrameBuffer:
             masked_frame: Frames with movement masked out.
         """
         frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
-        self.C, self.H, self.W = frame_tensor.shape
+        C, H, W = frame_tensor.shape
         self.frame_buffer.append(frame_tensor)
         self.frames_average_pooled_buffer.append(self.avg_pool2d(frame_tensor))
 
@@ -66,7 +61,7 @@ class FrameBuffer:
         # self._update_codebook(mask, current_frame_avg_pooled)
         self._fill_mask_gaps(mask)
 
-        mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
+        mask = nn.Upsample((H, W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
 
         self.frame_buffer[-1][:,mask>0] = -1
         return self.to_cv_frame(self.frame_buffer[-1])
@@ -82,7 +77,7 @@ class FrameBuffer:
         for i in range(1, ncomponents):
             component_size = np.sum(labeled == i)
             if component_size < 15:
-                print(f"component with size {component_size} is background")
+                # print(f"component with size {component_size} is background")
                 #component is background
                 mask[labeled==i] = 0
 
@@ -97,7 +92,7 @@ class FrameBuffer:
             component_size = np.sum(labeled == i)
             if component_size < max_component_size:
                 #component is obstacle
-                print(f"component with size {component_size} is obstacle")
+                # print(f"component with size {component_size} is obstacle")
                 mask[labeled==i] = 1
 
 
@@ -117,20 +112,6 @@ class FrameBuffer:
         mask = self.frame_buffer[-1] != -1
         self.committed_frame[mask] = self.frame_buffer[-1][mask]
         return self.to_cv_frame(self.committed_frame)
-
-    def _update_codebook(self, mask, average_pooled):
-        # Randomly select indices of average_pooled to speed up
-        C, H, W = average_pooled.shape
-        assert(H == mask.shape[0])
-        assert(W == mask.shape[1])
-        for i in range(H):
-            for j in range(W):
-                code = average_pooled[:,i, j]
-                match = self._find_closest_code(code, create = True)
-                if mask[i][j]>0:
-                    match.obstacle_freq +=1
-                else:
-                    match.board_freq += 1
 
     def _update_codebook(self, mask, average_pooled):
         # Randomly select indices of average_pooled to speed up
