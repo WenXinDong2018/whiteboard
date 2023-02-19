@@ -2,13 +2,11 @@
 
 A real-time obstruction-removal algorithm for whiteboarding applications.
 
+![image](images/image.jpg)
+
 Contributors: [WenXin Dong](https://github.com/WenXinDong2018), [Daniel Huang](https://github.com/pi314ever), [Sahil Tadwalkar](https://github.com/stadwalkar)
 
 ---
-
-![image](images/image.jpg)
-
-
 
 ## Table of Contents
 
@@ -16,18 +14,18 @@ Contributors: [WenXin Dong](https://github.com/WenXinDong2018), [Daniel Huang](h
 
 <!-- code_chunk_output -->
 
-- [ClearBoard](#-clearboard)
-  - [Table of Contents](#-table-of-contents)
-  - [1. Project Description](#-1-project-description)
-    - [1.1 Inspiration](#-11-inspiration)
-    - [1.2 What it does](#-12-what-it-does)
-    - [1.3 How we built it](#-13-how-we-built-it)
-    - [1.4 Challenges we ran into](#-14-challenges-we-ran-into)
-    - [1.5 Accomplishments that we're proud of](#-15-accomplishments-that-were-proud-of)
-    - [1.6 What we learned](#-16-what-we-learned)
-    - [1.7 What's next for ClearBoard](#-17-whats-next-for-clearboard)
-  - [2. Environment setup](#-2-environment-setup)
-  - [3. Links](#-3-links)
+- [ClearBoard](#clearboard)
+  - [Table of Contents](#table-of-contents)
+  - [1. Project Description](#1-project-description)
+    - [1.1 Inspiration](#11-inspiration)
+    - [1.2 What it does](#12-what-it-does)
+    - [1.3 How we built it](#13-how-we-built-it)
+    - [1.4 Challenges we ran into](#14-challenges-we-ran-into)
+    - [1.5 Accomplishments that we're proud of](#15-accomplishments-that-were-proud-of)
+    - [1.6 What we learned](#16-what-we-learned)
+    - [1.7 What's next for ClearBoard](#17-whats-next-for-clearboard)
+  - [2. Environment setup](#2-environment-setup)
+  - [3. Links](#3-links)
 
 <!-- /code_chunk_output -->
 ## 1. Project Description

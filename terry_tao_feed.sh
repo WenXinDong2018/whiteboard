@@ -1,0 +1,1 @@
+python src/image_feed.py -v -n "Terry Tao Feed" -l 5 -f "../videos/terry_tao_low_res.mp4"

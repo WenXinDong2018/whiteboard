@@ -5,6 +5,7 @@ import cv2
 import process_frame as pf
 import time
 from typing import Union
+import argparse
 
 class ImageFeed:
     def __init__(self, video_input: Union[str, int],
@@ -86,25 +87,59 @@ class ImageFeed:
         print(f'Frames processed: {i}')
         print(f'Total time: {end - global_start_time}s')
 
+class Args:
+    file: str | int
+    verbose: bool
+    name: str | None
+    lin_buffer: int | None
+    log_buffer: int | None
+    kernel: int
 
 if __name__ == '__main__':
-    video_input = "../videos/terry_tao_low_res.mp4"
+    parser = argparse.ArgumentParser(description='Image feed obstruction removal.')
 
-    lin_frame_buffer = pf.FrameBuffer(50, 10, is_log_buffer=False)
-    log_frame_buffer = pf.FrameBuffer(6, 10, is_log_buffer=True)
+    parser.add_argument('-f', '--file', type=str, default=0, help='Path to video file or 0 for webcam feed.')
 
-    # image_feed = ImageFeed(
-    #     0,                                      # Webcam feed
-    #     [lin_frame_buffer, log_frame_buffer],   # Frame buffers
-    #     ['linear', 'log'],                      # Frame buffer names
-    #     True                                    # Verbose
-    # )
+    parser.add_argument("-v", "--verbose", action="store_true", help="increase output verbosity")
+    parser.add_argument('-n', '--name', type=str, default=None)
+    parser.add_argument('-b', '--lin-buffer', type=int, default=None)
+    parser.add_argument('-l', '--log-buffer', type=int, default=None)
+    parser.add_argument('-k', '--kernel', type=int, default=10)
+
+    args: Args = parser.parse_args() # type: ignore
+
+    # Process arguments
+
+    if args.lin_buffer is None and args.log_buffer is None:
+        raise ValueError('Must specify either linear or log buffer size.')
+
+    if args.file == '0':
+        video_input = 0
+    else:
+        video_input = args.file
+
+    ## Frame buffers
+    frame_buffers = []
+    if args.lin_buffer is not None:
+        frame_buffers.append(pf.FrameBuffer(args.lin_buffer, args.kernel, is_log_buffer=False))
+    if args.log_buffer is not None:
+        frame_buffers.append(pf.FrameBuffer(args.log_buffer, args.kernel, is_log_buffer=True))
+
+    # Frame buffer names
+    frame_buffer_names = None
+    if args.name is not None:
+        if len(frame_buffers) > 1:
+            frame_buffer_names = [f'{args.name} linear', f'{args.name} log']
+        else:
+            frame_buffer_names = [args.name]
+
+    # video_input = "../videos/terry_tao_low_res.mp4"
 
     image_feed = ImageFeed(
-        video_input,                                      # Webcam feed
-        log_frame_buffer,                       # Frame buffer
-        'log',                                  # Frame buffer name
-        True
+        video_input=video_input,
+        frame_buffers=frame_buffers,
+        frame_buffer_names=frame_buffer_names,
+        verbose = args.verbose
     )
 
     image_feed.run_capture_loop()
