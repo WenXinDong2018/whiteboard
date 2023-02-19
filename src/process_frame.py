@@ -23,8 +23,8 @@ class FrameBuffer:
         self.is_log_buffer = is_log_buffer
         self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//2,self.k//2))
         self.committed_frame = None
-        self.codebook = defaultdict(tuple)  # A list of Code
-        self.codebook_distance_eps = 10
+        # self.codebook = defaultdict(tuple)  # A list of Code
+        # self.codebook_distance_eps = 10
         self.similarity_eps = 2
         self.t = 0
         self.foreground_color = torch.zeros((3,1))
@@ -127,7 +127,7 @@ class FrameBuffer:
         if mask==None: #Assume the first frame is obstacle-free
             return self.to_cv_frame(self.committed_frame), self.to_cv_frame(self.frame_buffer[0])
 
-        self.cur_frame = self.num_frames//2
+        # self.cur_frame = self.num_frames//2
 
         foreground = self.frame_buffer[self.cur_frame][:, mask]
         background = self.frame_buffer[self.cur_frame][:, torch.logical_not(mask)]
@@ -141,7 +141,7 @@ class FrameBuffer:
         ratio = distance_to_background / distance_to_foreground
 
         commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<10))
-        # commited = torch.logical_not(mask)
+        commited = torch.logical_not(mask)
         # Commiting the background
         self.committed_frame[:,commited] = self.frame_buffer[self.cur_frame][:,commited]
         # Add semi-transparent obstacles
