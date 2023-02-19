@@ -1,9 +1,10 @@
 import numpy as np
 import torch.nn as nn
 import torch
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass
-
+from scipy.ndimage.measurements import label
+import copy
 frames = []
 num_frames = 11 * 2 + 1
 k = 50
@@ -23,8 +24,11 @@ class FrameBuffer:
         self.k = kernel_size
         self.num_frames = num_frames
         self.is_log_buffer = is_log_buffer
-        self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k,self.k))
+        self.avg_pool2d = nn.AvgPool2d((self.k,self.k), stride = (self.k//2,self.k//2))
         self.committed_frame = None
+        self.codebook = defaultdict(tuple)  # A list of Code
+        self.codebook_distance_eps = 10
+        self.similarity_eps = 2
 
     def process_frame(self, frame):
         """
@@ -37,9 +41,6 @@ class FrameBuffer:
             masked_frame: Frames with movement masked out.
         """
         frame_tensor = torch.tensor(frame, dtype=float).permute(2,0,1) # type: ignore
-        self.codebook = defaultdict(tuple)  # A list of Code
-        self.codebook_distance_eps = 10
-        self.similarity_eps = 2
         self.C, self.H, self.W = frame_tensor.shape
         self.frame_buffer.append(frame_tensor)
         self.frames_average_pooled_buffer.append(self.avg_pool2d(frame_tensor))
@@ -60,15 +61,45 @@ class FrameBuffer:
         else:
             average_delta = torch.abs(current_frame_avg_pooled - torch.stack(self.frames_average_pooled_buffer)).sum(axis=1).mean(axis=0)/3 # type: ignore #(N, C, H, W) => (N, H, W) => (H, W)
 
-        mask = average_delta > 2
+        mask = average_delta > 1
 
         # self._update_codebook(mask, current_frame_avg_pooled)
-        # self._update_mask(mask, average_pool)
+        self._fill_mask_gaps(mask)
 
         mask = nn.Upsample((self.H, self.W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
 
         self.frame_buffer[-1][:,mask>0] = -1
         return self.to_cv_frame(self.frame_buffer[-1])
+
+    def _fill_mask_gaps(self, mask):
+
+        structure = np.ones((3, 3), dtype=np.int)
+
+        # Get rid of blinking noises
+        labeled, ncomponents = label(mask, structure)
+        labeled = np.array(labeled)
+
+        for i in range(1, ncomponents):
+            component_size = np.sum(labeled == i)
+            if component_size < 15:
+                print(f"component with size {component_size} is background")
+                #component is background
+                mask[labeled==i] = 0
+
+        # Fill obstacles
+        labeled, ncomponents = label(torch.logical_not(mask), structure)
+        max_component_size = 0
+        for i in range(1, ncomponents):
+            component_size = np.sum(labeled == i)
+            max_component_size = max(max_component_size, component_size)
+
+        for i in range(1,ncomponents):
+            component_size = np.sum(labeled == i)
+            if component_size < max_component_size:
+                #component is obstacle
+                print(f"component with size {component_size} is obstacle")
+                mask[labeled==i] = 1
+
 
     def to_cv_frame(self, frame):
         """
@@ -106,8 +137,8 @@ class FrameBuffer:
         C, H, W = average_pooled.shape
         assert H == mask.shape[0]
         assert W == mask.shape[1]
-        for i in range(H):
-            for j in range(W):
+        for i in range(0,H,20):
+            for j in range(0,W,20):
                 code = average_pooled[:, i, j]
                 match = self._find_closest_code(code, create=True)
                 if mask[i][j] > 0:
