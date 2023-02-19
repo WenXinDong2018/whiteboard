@@ -3,12 +3,12 @@ import cv2
 import process_frame as pf
 import time
 
-video_input = "../videos/terry_tao_low_res.mp4"
+video_input = "../videos/hello_treehacks_low_res.mp4"
 
 vid = cv2.VideoCapture(video_input)
 
-frame_buffer_lin = pf.FrameBuffer(6, 10, is_log_buffer=True)
-# frame_buffer_lin = pf.FrameBuffer(3, 10, is_log_buffer=False)
+# frame_buffer_lin = pf.FrameBuffer(6, 10, is_log_buffer=True)
+frame_buffer_lin = pf.FrameBuffer(10, 10, is_log_buffer=False)
 
 while True:
     # Capture the video frame
