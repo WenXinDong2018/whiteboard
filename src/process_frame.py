@@ -1,7 +1,6 @@
 import numpy as np
 import torch.nn as nn
 import torch
-from collections import defaultdict
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
 
@@ -109,7 +108,12 @@ class FrameBuffer:
             self.committed_frame = self.frame_buffer[-1]
             return self.to_cv_frame(self.committed_frame)
         mask = self.frame_buffer[-1] != -1
-        self.committed_frame[mask] = self.frame_buffer[-1][mask]
+        proposed_commit = self.committed_frame.clone()
+        proposed_commit[mask] = self.frame_buffer[-1][mask]
+        delta = torch.abs(proposed_commit - self.committed_frame).sum(axis=0) # type: ignore
+        delta_mask = delta > 800      # All the pixels that changed too much, take the old commit
+        proposed_commit[:, delta_mask] = self.committed_frame[:, delta_mask]
+        self.committed_frame = proposed_commit
         return self.to_cv_frame(self.committed_frame)
 
     def _update_codebook(self, mask, average_pooled):

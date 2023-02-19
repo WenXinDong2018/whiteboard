@@ -101,7 +101,7 @@ if __name__ == '__main__':
     # )
 
     image_feed = ImageFeed(
-        video_input,                                      # Webcam feed
+        0,                                      # Webcam feed
         log_frame_buffer,                       # Frame buffer
         'log',                                  # Frame buffer name
         True
