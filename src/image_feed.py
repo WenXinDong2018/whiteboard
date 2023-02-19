@@ -29,7 +29,7 @@ while True:
     # commit_frame_lin = frame_buffer_lin.commit_frame()
     # processed_frame = pf.process_frame(frame)
     # cv2.imshow('log frame processed', processed_frame_log)
-    cv2.imshow('lin frame processed', processed_frame_lin)
+    cv2.imshow('lin frame unprocessed', frame)
     # cv2.imshow('log frame committed', commit_frame_log)
     cv2.imshow('lin frame committed', commit_frame_lin)
 

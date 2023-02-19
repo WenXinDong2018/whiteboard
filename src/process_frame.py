@@ -143,7 +143,8 @@ class FrameBuffer:
         # print("ratio", ratio.shape)
         # print("ratio<2/ratio", torch.sum(ratio<2), len(ratio))
         # print("self.committed_frame[:,mask]", self.committed_frame[:,torch.logical_not(mask).nonzero()[ratio]].shape)
-        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<0.7, difference<5))
+        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<30))
+        commited = torch.logical_not(mask)
         # Commiting the background
         self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
         not_commited = torch.logical_not(commited)
