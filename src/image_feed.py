@@ -69,8 +69,8 @@ class ImageFeed:
                 if not ret:
                     break
                 for frame_buffer, frame_buffer_name in zip(self.frame_buffers, self.frame_buffer_names):
-                    masked_frame = frame_buffer.process_frame(frame)
-                    committed_frame = frame_buffer.commit_frame()
+                    masked_frame, committed_frame = frame_buffer.process_frame(frame)
+                    # committed_frame = frame_buffer.commit_frame()
                     cv2.imshow(f'{frame_buffer_name} masked', masked_frame)
                     cv2.imshow(f'{frame_buffer_name} committed', committed_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):

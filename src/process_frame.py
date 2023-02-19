@@ -1,6 +1,7 @@
 import numpy as np
 import torch.nn as nn
 import torch
+import copy
 from collections import defaultdict
 from dataclasses import dataclass
 from scipy.ndimage.measurements import label
@@ -24,6 +25,9 @@ class FrameBuffer:
         self.codebook = defaultdict(tuple)  # A list of Code
         self.codebook_distance_eps = 10
         self.similarity_eps = 2
+        self.t = 0
+        self.foreground_color = torch.zeros((3,1))
+        self.background_color = torch.zeros((3,1))
 
     def process_frame(self, frame):
         """
@@ -43,7 +47,7 @@ class FrameBuffer:
         if (self.is_log_buffer and len(self.frame_buffer) < 2**self.num_frames) or (
             not self.is_log_buffer and len(self.frame_buffer) < self.num_frames
         ):
-            return frame
+            return frame, frame
 
         # Pop oldest frame
         self.frame_buffer.pop(0)
@@ -56,15 +60,16 @@ class FrameBuffer:
         else:
             average_delta = torch.abs(current_frame_avg_pooled - torch.stack(self.frames_average_pooled_buffer)).sum(axis=1).mean(axis=0)/3 # type: ignore #(N, C, H, W) => (N, H, W) => (H, W)
 
-        mask = average_delta > 1
+        mask = average_delta > 2
 
-        # self._update_codebook(mask, current_frame_avg_pooled)
         self._fill_mask_gaps(mask)
 
         mask = nn.Upsample((H, W))(mask.unsqueeze(0).unsqueeze(0)+0.0).squeeze()
-
+        commited_frame = self.commit_frame(mask>0)
         self.frame_buffer[-1][:,mask>0] = -1
-        return self.to_cv_frame(self.frame_buffer[-1])
+        processed_frame = self.to_cv_frame(self.frame_buffer[-1])
+
+        return processed_frame, commited_frame
 
     def _fill_mask_gaps(self, mask):
 
@@ -102,85 +107,42 @@ class FrameBuffer:
         """
         return frame.permute(1,2,0).numpy().astype(np.uint8)
 
-    def commit_frame(self):
+    def moving_average(self,color, new_colors):
+        if not len(new_colors): return color
+        new_color = torch.mean(new_colors, axis=1).unsqueeze(1) #length 3 vector
+        return (self.t*color + new_color)/(self.t+1)
+
+
+    def commit_frame(self, mask): #mask is 1 for obstacles
         """
         Commits current frame to be used as reference frame for future frames.
         """
+        self.t += 1
         if self.committed_frame is None:
             self.committed_frame = self.frame_buffer[-1]
             return self.to_cv_frame(self.committed_frame)
-        mask = self.frame_buffer[-1] != -1
-        self.committed_frame[mask] = self.frame_buffer[-1][mask]
-        return self.to_cv_frame(self.committed_frame)
+        if self.t<self.num_frames:
+            return self.to_cv_frame(self.committed_frame)
 
-    def _update_codebook(self, mask, average_pooled):
-        # Randomly select indices of average_pooled to speed up
-        C, H, W = average_pooled.shape
-        assert H == mask.shape[0]
-        assert W == mask.shape[1]
-        for i in range(0,H,20):
-            for j in range(0,W,20):
-                code = average_pooled[:, i, j]
-                match = self._find_closest_code(code, create=True)
-                if mask[i][j] > 0:
-                    match.obstacle_freq += 1
-                else:
-                    match.board_freq += 1
+        foreground = self.frame_buffer[-1][:, mask]
+        background = self.frame_buffer[-1][:,torch.logical_not(mask)]
 
-    def _most_likely_obstacle(self, code):
-        return code.board_freq > 5 and code.obstacle_freq / code.board_freq > 2
+        self.foreground_color = self.moving_average(self.foreground_color, foreground)
+        self.background_color = self.moving_average(self.background_color, background)
 
-    def _most_likely_board(self, code):
-        return code.obstacle_freq > 5 and code.board_freq / code.obstacle_freq > 2
+        difference = torch.abs(self.committed_frame - self.frame_buffer[-1]).sum(axis=0)/3
+        distance_to_foreground = torch.abs(self.foreground_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
+        distance_to_background = torch.abs(self.background_color.unsqueeze(-1) - self.frame_buffer[-1]).sum(axis=0)/3 + 1
+        ratio = distance_to_background / distance_to_foreground
 
-    def _find_closest_code(self, x, create=False):
+        commited = torch.logical_and(torch.logical_not(mask), torch.logical_or(ratio<1, difference<30))
+        # commited = torch.logical_not(mask)
+        # Commiting the background
+        self.committed_frame[:,commited] = self.frame_buffer[-1][:,commited]
+        not_commited = torch.logical_not(commited)
+        show_frame = copy.deepcopy(self.committed_frame)
+        beta = 5
+        show_frame[:, not_commited] = show_frame[:, not_commited] *(beta-1)/beta + self.frame_buffer[-1][:, not_commited]*1/beta
+        mask = not_commited
+        return self.to_cv_frame(show_frame)
 
-        add_code = True
-        min_dist = float("inf")
-        closest_code = None
-        target = (int(x[0]), int(x[1]), int(x[2]))
-        # print("target", target)
-        # print()
-        for r in range(
-            max(0, target[0] - self.codebook_distance_eps),
-            min(255, target[0] + self.codebook_distance_eps),
-        ):
-            for g in range(
-                max(0, target[1] - self.codebook_distance_eps),
-                min(255, target[1] + self.codebook_distance_eps),
-            ):
-                for b in range(
-                    max(0, target[2] - self.codebook_distance_eps),
-                    min(255, target[2] + self.codebook_distance_eps),
-                ):
-                    if (r, g, b) in self.codebook:
-                        add_code = False
-                        code = self.codebook[(r, g, b)]
-                        dist = torch.abs(code.code - x).sum() / 3
-                        if dist < min_dist:
-                            min_dist = dist
-                            closest_code = code
-
-        if create and add_code:
-            self.codebook[target] = Code(x, 0, 0, len(self.codebook))
-            closest_code = self.codebook[target]
-            print("adding code", len(self.codebook))
-        return closest_code
-
-    # def update_code(code, match_idx):
-    #     match = obstacle_codebook_freq[match_idx]
-    #     freq = obstacle_codebook_freq[match_idx]
-    #     obstacle_codebook_freq[match_idx] = (freq*match + code)/ (freq+1)
-    #     obstacle_codebook_freq[match_idx]+=1
-
-    def _update_mask(self, mask, average_pooled):
-        C, H, W = average_pooled.shape
-        for i in range(H):
-            for j in range(W):
-                code = average_pooled[:, i, j]
-                match = self._find_closest_code(code, create=False)
-                if match != None:
-                    if self._most_likely_obstacle(match):
-                        mask[i, j] = 1
-                    elif self._most_likely_board(match):
-                        mask[i, j] = 0
