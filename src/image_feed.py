@@ -100,11 +100,11 @@ if __name__ == '__main__':
 
     parser.add_argument('-f', '--file', type=str, default=0, help='Path to video file or 0 for webcam feed.')
 
-    parser.add_argument("-v", "--verbose", action="store_true", help="increase output verbosity")
-    parser.add_argument('-n', '--name', type=str, default=None)
-    parser.add_argument('-b', '--lin-buffer', type=int, default=None)
-    parser.add_argument('-l', '--log-buffer', type=int, default=None)
-    parser.add_argument('-k', '--kernel', type=int, default=10)
+    parser.add_argument("-v", "--verbose", action="store_true", help="Increase output verbosity")
+    parser.add_argument('-n', '--name', type=str, default=None, help='Root name for buffers')
+    parser.add_argument('-b', '--lin-buffer', type=int, default=None, help='Linear buffer size')
+    parser.add_argument('-l', '--log-buffer', type=int, default=None, help='Log buffer size')
+    parser.add_argument('-k', '--kernel', type=int, default=10, help='Kernel size for average pool convolutions')
 
     args: Args = parser.parse_args() # type: ignore
 
