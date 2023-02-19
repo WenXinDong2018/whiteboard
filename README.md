@@ -25,7 +25,8 @@ Contributors: [WenXin Dong](https://github.com/WenXinDong2018), [Daniel Huang](h
     - [1.6 What we learned](#16-what-we-learned)
     - [1.7 What's next for ClearBoard](#17-whats-next-for-clearboard)
   - [2. Environment setup](#2-environment-setup)
-  - [3. Links](#3-links)
+  - [3. Run basic examples](#3-run-basic-examples)
+  - [4. Links](#4-links)
 
 <!-- /code_chunk_output -->
 ## 1. Project Description
@@ -72,6 +73,19 @@ Updating environment:
 conda env update -f environment.yml --prune
 ```
 
-## 3. Links
+## 3. Run basic examples
+
+Webcam feed:
+
+```sh
+sh webcam_feed.sh
+```
+
+Example video feed:
+```sh
+sh terry_tao_feed.sh
+```
+
+## 4. Links
 
 [Reference Video](https://www.youtube.com/watch?v=pp06oGD4m00)
